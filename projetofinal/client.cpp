@@ -29,16 +29,6 @@ void draw_windows(WINDOW **two, WINDOW **one, WINDOW **three);
 Commands interpret(char *string, int *argc, char **argv);
 static void printline(const char *date, const char *time, const char *nick,
                       const char *mesg, WINDOW *wout);
-void get_current_date_time(char *datestring, char *timestring) {
-  struct tm *tm;
-  time_t t;
-
-  t = time(NULL);
-  tm = localtime(&t);
-
-  strftime(timestring, sizeof(timestring), "%H:%M:%S", tm);
-  strftime(datestring, sizeof(datestring), "%d/%m", tm);
-}
 
 void clearWindows(WINDOW *w) {
   wclear(w);
@@ -60,6 +50,8 @@ int main(int argc, char *argv[]) {
   int len;
   char buf[MAX_LINE];
   int argcount;
+  char *user_name_json;
+  const char *temp;
   char str_time[100];
   char str_date[100];
   fd_set rset, allset;
@@ -99,6 +91,8 @@ int main(int argc, char *argv[]) {
   raw();
 
   draw_windows(&input, &output, &list);
+  user_name_json = set_username_json_string(nick);
+  send(s, user_name_json, strlen(user_name_json), 0);
   getsockname(s, (struct sockaddr *)&info, &infoLen);
   sprintf(string, "Conectado em: %s:%d", inet_ntoa(info.sin_addr),
           ntohs(info.sin_port));
@@ -126,6 +120,20 @@ int main(int argc, char *argv[]) {
         // strange error
         perror("receive error");
         return 1;
+      } else {
+        buf[read_lines] = '\0';
+        const char *json_args[10];
+		char *json_rep;
+	    json_error_t error;
+        Commands c = parse_json(buf, json_args, &error);
+        if (c == WHO) {
+			int i;
+		    get_current_date_time(str_date, str_time);
+			vector<const char*> nicks = parse_who_json_response(buf,&error);
+			for(i = 0; i<nicks.size(); i++){
+			    printline(str_date, str_time, "SERVER", nicks[i], output);
+			}
+		}
       }
     }
     if (FD_ISSET(fileno(stdin), &rset)) {
@@ -134,6 +142,10 @@ int main(int argc, char *argv[]) {
       if ((command = interpret(string, &argcount, &args)) == EXIT)
         break;
       else {
+        if (command == WHO) {
+          temp = get_who_json_string();
+          send(s, temp, strlen(temp), 0);
+        }
       }
       wrefresh(input);
     }
