@@ -26,7 +26,7 @@ using namespace std;
 WINDOW *create_newwin(int height, int width, int starty, int startx);
 void destroy_win(WINDOW *local_win);
 void draw_windows(WINDOW **two, WINDOW **one, WINDOW **three);
-Commands interpret(char *string, int *argc, char **argv);
+Commands interpret(char *string, int *argc, char **arg);
 static void printline(const char *date, const char *time, const char *nick,
                       const char *mesg, WINDOW *wout);
 
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
   WINDOW *input, *output, *list;
   char *host, *port, *nick;
   char string[1000];
-  char *args;
+  char *args[3];
   int len;
   char buf[MAX_LINE];
   int argcount;
@@ -123,29 +123,41 @@ int main(int argc, char *argv[]) {
       } else {
         buf[read_lines] = '\0';
         const char *json_args[10];
-		char *json_rep;
-	    json_error_t error;
+        char *json_rep;
+        json_error_t error;
         Commands c = parse_json(buf, json_args, &error);
+		get_current_date_time(str_date, str_time);
+        printline(str_date, str_time, "SERVER", buf, output);
         if (c == WHO) {
-			int i;
-		    get_current_date_time(str_date, str_time);
-			vector<const char*> nicks = parse_who_json_response(buf,&error);
-			for(i = 0; i<nicks.size(); i++){
-			    printline(str_date, str_time, "SERVER", nicks[i], output);
-			}
-		}
+          int i;
+          get_current_date_time(str_date, str_time);
+          vector<const char *> nicks = parse_who_json_response(buf, &error);
+          for (i = 0; i < nicks.size(); i++) {
+            printline(str_date, str_time, "SERVER", nicks[i], output);
+          }
+        }
       }
     }
     if (FD_ISSET(fileno(stdin), &rset)) {
       mvwgetstr(input, 1, 1, string);
       clearWindows(input);
-      if ((command = interpret(string, &argcount, &args)) == EXIT)
+      get_current_date_time(str_date, str_time);
+      printline(str_date, str_time, nick, string, output);
+      if ((command = interpret(string, &argcount, args)) == EXIT)
         break;
       else {
         if (command == WHO) {
           temp = get_who_json_string();
-          send(s, temp, strlen(temp), 0);
+        } else if (command == SEND) {
+          temp = send_message_string(args[0],args[1]);
+        } else if (command == CREATEG) {
+          temp = create_group_string(args[0]);
+        } else if (command == JOING){
+          temp = join_group_string(args[0]);
+        } else if (command == SENDG){
+          temp = send_group_string(args[0], args[1]);
         }
+        send(s, temp, strlen(temp), 0);
       }
       wrefresh(input);
     }
@@ -210,13 +222,40 @@ void destroy_win(WINDOW *local_win) {
   delwin(local_win);
 }
 
-Commands interpret(char *string, int *argc, char **argv) {
-  if (!strcmp(string, "EXIT")) {
-    return EXIT;
-  } else if (!strcmp(string, "WHO")) {
-    return WHO;
+Commands interpret(char *string, int *argc, char *arg[]) {
+  char *b, *command;
+  Commands c;
+  command = strtok(string, " ");
+  int i = 0;
+
+  if (!strcmp(command, "EXIT")) {
+    c = EXIT;
+  } else if (!strcmp(command, "WHO")) {
+    c = WHO;
+  } else if(!strcmp(command, "SEND")){
+	  arg[0] = strtok(NULL, " ");
+	  arg[1] = strtok(NULL, "");
+	  return SEND;
+  } else if(!strcmp(command, "SENDG")){
+	  arg[0] = strtok(NULL, " ");
+	  arg[1] = strtok(NULL, "");
+	  return SENDG;
+  } else if(!strcmp(command, "JOING")){
+	  c = JOING;
+  }else{
+      c = UNKNOWN;
   }
-  return UNKNOWN;
+
+  command = strtok(NULL, " ");
+  while (command != NULL) {
+    if (i > 3) {
+      break;
+    }
+    arg[i] = command;
+    command = strtok(NULL, " ");
+    i++;
+  }
+  return c;
 }
 
 void draw_windows(WINDOW **two, WINDOW **one, WINDOW **three) {
