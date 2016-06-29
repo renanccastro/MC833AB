@@ -18,13 +18,13 @@ using namespace std;
 void print_group_vector(vector<group> g) {
   for (int i = 0; i < g.size(); i++) {
     cout << "GRUPO: " << g[i].groupId << " - [";
-		group a = g[i];
-		list<user *>::const_iterator iterator;
-		for (iterator = a.members.begin(); iterator != a.members.end();
-				 ++iterator) {
-					 cout << " " << (*iterator)->name;
-		}
-		cout << "]" << endl;
+    group a = g[i];
+    list<user *>::const_iterator iterator;
+    for (iterator = a.members.begin(); iterator != a.members.end();
+         ++iterator) {
+      cout << " " << (*iterator)->name;
+    }
+    cout << "]" << endl;
   }
 }
 
@@ -52,11 +52,11 @@ int main(int argc, char **argv) {
   servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
   servaddr.sin_port = htons(SERV_PORT);
 
-  if (bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-    perror("bind error");
-    close(listenfd);
-    return 1;
-  }
+	bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+//    perror("bind error");
+//    close(listenfd);
+//    return 1;
+//  }
 
   if (listen(listenfd, LISTENQ) < 0) {
     perror("listen error");
@@ -86,6 +86,14 @@ int main(int argc, char **argv) {
         perror("accept error");
         return 1;
       }
+      user u = user();
+      u.fd = connfd;
+      u.name = NULL;
+      u.online = true;
+      get_current_date_time(date_string, time_string);
+      sprintf(u.last_connection, "%s-%s", date_string, time_string);
+      users.push_back(u);
+      printf("NEW USER ENTERED SERVER.\n");
 
       FD_SET(connfd, &allset); /* add new descriptor to set */
       if (connfd > maxfd)
@@ -96,15 +104,23 @@ int main(int argc, char **argv) {
       if (--nready <= 0)
         continue; /* no more readable descriptors */
     }
-		for(i = 0; i < )
 
-    for (i = 0; i < users.size(); i++) { /* check all clients for data */
-      if (!users[i].q.empty() && users[i].online == true) {
-        send(users[i].fd, users[i].q.front(), strlen(users[i].q.front()), 0);
-        users[i].q.pop();
+    vector<user>::iterator users_i;
+    for (users_i = users.begin(); users_i != users.end(); ++users_i) {
+      if (!(*users_i).q.empty() && (*users_i).online == true) {
+        send((*users_i).fd, (*users_i).q.front(), strlen((*users_i).q.front()),
+             0);
+        (*users_i).q.pop();
       }
-      if ((sockfd = users[i].fd) < 0)
+    }
+
+    users_i = users.begin();
+    while (users_i != users.end()) {
+      bool shouldIncrement = true;
+      if ((sockfd = (*users_i).fd) < 0){
+				++users_i;
         continue;
+			}
       if (FD_ISSET(sockfd, &rset)) {
         if ((n = read(sockfd, buf, MAXLINE)) == 0) {
           if (n < 0) {
@@ -113,11 +129,12 @@ int main(int argc, char **argv) {
           }
           /* connection closed by client */
           get_current_date_time(date_string, time_string);
-          sprintf(users[i].last_connection, "%s-%s", date_string, time_string);
+          sprintf((*users_i).last_connection, "%s-%s", date_string,
+                  time_string);
           close(sockfd);
           FD_CLR(sockfd, &allset);
-          users[i].fd = -1;
-          users[i].online = false;
+          (*users_i).fd = -1;
+          (*users_i).online = false;
         } else {
           // Recebeu algum pacote do cliente users[i]
           // Parseia
@@ -133,24 +150,22 @@ int main(int argc, char **argv) {
             break;
           }
           case SETUSERNAME: {
-						bool flag = true;
-						for(int i = 0 ; i < users.size(); i++){
-							if(!strcmp(users[i].name,json_args[0])){
-								flag = false;
-								users[i].online = true;
-								printf("%s LOGGED BACK.\n", json_args[0]);
-							}
-						}
-						if(flag){
-							user u = user();
-							u.fd = connfd;
-							u.name = json_args[0];
-							u.online = true;
-							get_current_date_time(date_string, time_string);
-							sprintf(u.last_connection, "%s-%s", date_string, time_string);
-							users.push_back(u);
-							printf("USER %s  REGISTERED.\n", json_args[0]);
-						}
+            vector<user>::iterator users_j;
+            for (users_j = users.begin(); users_j != users.end(); ++users_j) {
+              // se jah existe um usuario com nome
+              if ((*users_j).name && !strcmp((*users_j).name, json_args[0])) {
+                printf("%s LOGGED BACK.\n", json_args[0]);
+                shouldIncrement = false;
+                (*users_j).online = true;
+                (*users_j).fd = (*users_i).fd;
+                // apaga o usuario temporario
+                users_i = users.erase(users_i);
+                break;
+              }
+            }
+            if (shouldIncrement) {
+              (*users_i).name = json_args[0];
+            }
             break;
           }
           case SEND: {
@@ -169,16 +184,16 @@ int main(int argc, char **argv) {
             group g = group();
             g.groupId = json_args[0];
             groups.push_back(g);
-						print_group_vector(groups);
+            print_group_vector(groups);
             break;
           }
           case JOING: {
             for (int b = 0; b < groups.size(); b++) {
               if (!strcmp(groups[b].groupId, json_args[0])) {
-                groups[b].members.push_back(&users[i]);
+                groups[b].members.push_back(&(*users_i));
               }
             }
-						print_group_vector(groups);
+            print_group_vector(groups);
             break;
           }
           case SENDG: {
@@ -201,6 +216,9 @@ int main(int argc, char **argv) {
           }
           default: { break; }
           }
+        }
+        if (shouldIncrement) {
+          users_i++;
         }
         if (--nready <= 0)
           break; /* no more readable descriptors */

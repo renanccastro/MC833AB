@@ -8,9 +8,9 @@ void get_current_date_time(char *datestring, char *timestring) {
     time ( &rawtime );
     timeinfo = localtime ( &rawtime );
 
-    sprintf(datestring, "[%d/%d]",timeinfo->tm_mday, timeinfo->tm_mon + 1);
-	sprintf(timestring, "[%d:%d:%d]",timeinfo->tm_hour, timeinfo->tm_min,timeinfo->tm_sec);
-	
+    sprintf(datestring, "[%02d/%02d]",timeinfo->tm_mday, timeinfo->tm_mon + 1);
+	sprintf(timestring, "[%02d:%02d:%02d]",timeinfo->tm_hour, timeinfo->tm_min,timeinfo->tm_sec);
+
 }
 
 Commands parse_json(char *json_string, const char *args[], json_error_t *error) {
@@ -54,13 +54,13 @@ vector<const char*> parse_who_json_response(char* json_string, json_error_t *err
 
 		nick = json_string_value(json_object_get(data, USER_JSON_NAME));
 		status = json_string_value(json_object_get(data, USER_JSON_STATUS));
-		
-		string = (char*)malloc(strlen(nick)+3+strlen(status));
+
+		string = (char*)malloc(strlen(nick)+3+strlen(status)+3);
 		sprintf(string, "%s - %s", nick,status);
 		nicknames.push_back((const char*)string);
 	}
     json_decref(root);
-	
+
     return nicknames;
 }
 
@@ -69,11 +69,11 @@ char* set_username_json_string(char* name){
     json_object_set_new(root, COMMAND_JSON, json_integer(SETUSERNAME));
     json_object_set_new(root, USER_JSON_NAME, json_string(name));
     char* r = json_dumps(root, 0);
-    json_decref(root);  
+    json_decref(root);
     return r;
 }
-	
-	
+
+
 json_t *encode_user_json(user u) {
   json_t *root = json_object();
   printf("name: %s\n",u.name);
@@ -81,8 +81,8 @@ json_t *encode_user_json(user u) {
   json_object_set_new(root, USER_JSON_STATUS, json_string(u.online == true ? "online" : "offline"));
   json_object_set_new(root, USER_JSON_LAST_CONNECTION,
                       json_string(u.last_connection));
-					
-					  
+
+
 					  return root;
 }
 
@@ -96,7 +96,7 @@ const char *send_message_string(const char* to, const char* message){
 	json_object_set_new(root, MESSAGE_JSON_TO, json_string(to));
     json_object_set_new(root, MESSAGE_JSON_MESSAGE, json_string(message));
     char* r = json_dumps(root, 0);
-    json_decref(root);  
+    json_decref(root);
     return r;
 }
 
@@ -105,7 +105,7 @@ const char *create_group_string(const char* string){
     json_object_set_new(root, COMMAND_JSON, json_integer(CREATEG));
     json_object_set_new(root, GROUP_JSON_NAME, json_string(string));
     char* r = json_dumps(root, 0);
-    json_decref(root);  
+    json_decref(root);
     return r;
 }
 
@@ -137,9 +137,9 @@ char *get_online_users_json_string(vector<user> users) {
 		json_array_append( array, encode_user_json(users[j]));
   }
   json_object_set_new(root, USERS_JSON_ARRAY, array);
-  
+
   char* r = json_dumps(root, 0);
   json_decref(root);
-  
+
   return r;
 }

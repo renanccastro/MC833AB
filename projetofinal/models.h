@@ -26,6 +26,11 @@ typedef struct user{
 	queue<const char*> q;
 } user;
 
+typedef struct user_status{
+	const char* name;
+	const char* status;
+} user_status;
+
 typedef struct message{
 	int id;
 	const char* from;
@@ -48,4 +53,4 @@ const char *send_message_string(const char* to, const char* message);
 const char *create_group_string(const char* string);
 const char *join_group_string(const char* string);
 const char *send_group_string(const char* group, const char* message);
-#endif 
+#endif
