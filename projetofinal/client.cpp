@@ -112,6 +112,7 @@ int main(int argc, char *argv[]) {
     nready = select(maxfd + 1, &rset, NULL, NULL, NULL);
     if (nready < 0) {
       perror("select error");
+      endwin(); /* End curses mode		  */
       return 1;
     }
     if (FD_ISSET(s, &rset)) {
@@ -242,6 +243,8 @@ Commands interpret(char *string, int *argc, char *arg[]) {
 	  return SENDG;
   } else if(!strcmp(command, "JOING")){
 	  c = JOING;
+  }else if(!strcmp(command, "CREATEG")){
+    c = CREATEG;
   }else{
       c = UNKNOWN;
   }
